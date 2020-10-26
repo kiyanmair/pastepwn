@@ -3,6 +3,8 @@ import logging
 
 import mysql.connector
 
+import re
+
 from .abstractdb import AbstractDB
 
 
@@ -33,18 +35,24 @@ class MysqlDB(AbstractDB):
             )
 
         self.cursor = self.db.cursor()
-        # self._create_db(dbname) # Not used because of possible SQLI
+        self._create_db(dbname)
         self._create_tables()
 
         self.logger.debug("Connected to database!")
 
+    def _validate_dbname(self, dbname):
+        if len(dbname) > 64:
+            raise Exception("Database name cannot be more than 64 characters.")
+        if len(dbname) == 0:
+            raise Exception("Database name cannot be blank.")
+        if not re.match(r"^[a-zA-Z0-9_]+$", dbname):
+            raise Exception("Database name can only contain ASCII letters, numbers, and underscores.")
+
     def _create_db(self, dbname):
-        # Currently I found no other way to insert the database name into the sql statement
-        # With the following code a simple SQL Injection would be possible - question is, why would a user do this to his own database?
-        # Nevertheless I don't want to put this into production that way. I'll keep the code but remove the call to it.
-        self.logger.info("Creating database '{0}' (if not exists)".format(self.dbname))
-        self.cursor.execute("""CREATE DATABASE IF NOT EXISTS %s;""" % self.dbname)
-        self.cursor.execute("""USE %s;""" % self.dbname)
+        self._validate_dbname(dbname)
+        self.logger.info("Creating database `{0}` (if not exists)".format(dbname))
+        self.cursor.execute("""CREATE DATABASE IF NOT EXISTS %s;""" % dbname)
+        self.cursor.execute("""USE %s;""" % dbname)
         self.db.commit()
 
     def _create_tables(self):
